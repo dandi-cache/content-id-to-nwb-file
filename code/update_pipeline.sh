@@ -24,6 +24,8 @@
 #   WORKSPACE   Path to the `main` checkout that holds the code (this repository).
 #   IMAGE       Container image reference to run the processing in.
 # Optional:
+#   LIMIT        Cap on the number of input records scanned by update.py, for bounded test
+#                runs. Left empty for scheduled runs, which recompute the full subset.
 #   GITHUB_SHA   Recorded in the provenance message to link results to the code commit.
 #   RUNNER_TEMP  Scratch directory for the working clones (default: /tmp).
 set -euo pipefail
@@ -31,6 +33,7 @@ set -euo pipefail
 : "${REPO_URL:?REPO_URL must be set}"
 : "${WORKSPACE:?WORKSPACE must be set}"
 : "${IMAGE:?IMAGE must be set}"
+LIMIT="${LIMIT:-}"
 GITHUB_SHA="${GITHUB_SHA:-unknown}"
 
 BOT_NAME="github-actions[bot]"
@@ -142,11 +145,17 @@ RUN_INPUT_ARGS=()
 if [ -n "${INPUT_SUBDATASET_URL}" ]; then
   RUN_INPUT_ARGS=(--input "${INPUT_SUBDATASET_PATH}")
 fi
+# A LIMIT (from a manual dispatch) caps the records scanned for a bounded test run;
+# scheduled runs leave it empty and recompute the full subset.
+UPDATE_CMD="python /code/update.py --base-directory /tmp"
+if [ -n "${LIMIT}" ]; then
+  UPDATE_CMD="${UPDATE_CMD} --limit ${LIMIT}"
+fi
 datalad containers-run -n pipeline --explicit \
   "${RUN_INPUT_ARGS[@]}" \
   --output derivatives \
   -m "Update content-id-to-nwb-file (code @ ${GITHUB_SHA}; image ${DIGEST})" \
-  "python /code/update.py --base-directory /tmp"
+  "${UPDATE_CMD}"
 
 # Publish the full results to the `derivatives` branch.
 git -C "${DS}" push "${REPO_URL}" HEAD:derivatives
