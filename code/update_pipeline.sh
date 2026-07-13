@@ -24,7 +24,8 @@
 #   WORKSPACE   Path to the `main` checkout that holds the code (this repository).
 #   IMAGE       Container image reference to run the processing in.
 # Optional:
-#   LIMIT        Batch size passed to update.py for incremental runs (default: 2000).
+#   LIMIT        Cap on the number of input records scanned by update.py, for bounded test
+#                runs. Left empty for scheduled runs, which recompute the full subset.
 #   GITHUB_SHA   Recorded in the provenance message to link results to the code commit.
 #   RUNNER_TEMP  Scratch directory for the working clones (default: /tmp).
 set -euo pipefail
@@ -32,19 +33,19 @@ set -euo pipefail
 : "${REPO_URL:?REPO_URL must be set}"
 : "${WORKSPACE:?WORKSPACE must be set}"
 : "${IMAGE:?IMAGE must be set}"
-LIMIT="${LIMIT:-2000}"
+LIMIT="${LIMIT:-}"
 GITHUB_SHA="${GITHUB_SHA:-unknown}"
 
 BOT_NAME="github-actions[bot]"
 BOT_EMAIL="github-actions[bot]@users.noreply.github.com"
 
-# TODO: pick this cache's input mode — upstream DataLad dataset, local `sourcedata`
-# directory, or first-in-chain network fetch. The three modes, and how these variables
-# drive them, are documented in .claude/skills/setup-cache/SKILL.md (step 2). Leave
-# INPUT_SUBDATASET_URL empty for the two non-subdataset modes; the subdataset handling
-# below is then skipped.
-INPUT_SUBDATASET_URL=""  # e.g. https://github.com/dandi-cache/<input-dataset-name>.git
-INPUT_SUBDATASET_PATH="sourcedata/<input-dataset-name>"
+# Input mode: upstream DataLad dataset. The content-id-to-usage-dandiset-path cache is
+# registered as an input subdataset, cloned into the derivatives dataset, and pinned via
+# `--input` so every result records the exact upstream commit it was computed from. That
+# cache publishes its data on its `derivatives` branch (its default branch holds only
+# code), which is what INPUT_SUBDATASET_BRANCH tracks.
+INPUT_SUBDATASET_URL="https://github.com/dandi-cache/content-id-to-usage-dandiset-path.git"
+INPUT_SUBDATASET_PATH="sourcedata/content-id-to-usage-dandiset-path"
 INPUT_SUBDATASET_BRANCH="derivatives"
 
 DS="${RUNNER_TEMP:-/tmp}/derivatives-dataset"
@@ -123,7 +124,10 @@ datalad save -m "Pin runtime container image to ${DIGEST}" .datalad
 # Fail fast if the dataset is not clean before the recorded run. `containers-run` requires a
 # clean tree to detect the command's changes and otherwise aborts with a generic "clean
 # dataset required" error; surfacing the offending paths here is far easier to diagnose.
-DATASET_STATUS=$(datalad status)
+# `git status --porcelain` is empty exactly when the tree is clean, whereas `datalad status`
+# prints a human-readable "nothing to save, working tree clean" summary when clean, which
+# would trip an emptiness check as a false positive.
+DATASET_STATUS=$(git status --porcelain)
 if [ -n "${DATASET_STATUS}" ]; then
   echo "ERROR: derivatives dataset is not clean before containers-run." >&2
   echo "Offending paths:" >&2
@@ -144,11 +148,17 @@ RUN_INPUT_ARGS=()
 if [ -n "${INPUT_SUBDATASET_URL}" ]; then
   RUN_INPUT_ARGS=(--input "${INPUT_SUBDATASET_PATH}")
 fi
+# A LIMIT (from a manual dispatch) caps the records scanned for a bounded test run;
+# scheduled runs leave it empty and recompute the full subset.
+UPDATE_CMD="python /code/update.py --base-directory /tmp"
+if [ -n "${LIMIT}" ]; then
+  UPDATE_CMD="${UPDATE_CMD} --limit ${LIMIT}"
+fi
 datalad containers-run -n pipeline --explicit \
   "${RUN_INPUT_ARGS[@]}" \
   --output derivatives \
-  -m "Update <cache-name> (code @ ${GITHUB_SHA}; image ${DIGEST})" \
-  "python /code/update.py --base-directory /tmp --limit ${LIMIT}"
+  -m "Update content-id-to-nwb-file (code @ ${GITHUB_SHA}; image ${DIGEST})" \
+  "${UPDATE_CMD}"
 
 # Publish the full results to the `derivatives` branch.
 git -C "${DS}" push "${REPO_URL}" HEAD:derivatives
@@ -162,5 +172,5 @@ git -C "${DISTDIR}" init -q -b dist
 git -C "${DISTDIR}" config user.name "${BOT_NAME}"
 git -C "${DISTDIR}" config user.email "${BOT_EMAIL}"
 git -C "${DISTDIR}" add dataset_description.json derivatives
-git -C "${DISTDIR}" commit -q -m "Publish <cache-name>"
+git -C "${DISTDIR}" commit -q -m "Publish content-id-to-nwb-file"
 git -C "${DISTDIR}" push -f "${REPO_URL}" dist:dist
