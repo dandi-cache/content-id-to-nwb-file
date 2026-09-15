@@ -65,3 +65,12 @@ For example, through `crontab -e`, add:
 ```
 
 This will minimize data overhead by only loading the most recent changes.
+
+
+## How this cache is built
+
+The orchestration, the runtime library and the CI all come from elsewhere, so this repository holds only what is specific to this cache: `cache.toml` (what it is), `code/update.py` (the filter it applies), `envs/pyproject.toml` (its dependencies, of which it has none) and the schedule in `.github/workflows/update.yml`.
+
+The pipeline is [`dandi-cache-utils`](https://github.com/dandi-cache/dandi-cache-utils), vendored into the runtime image this cache is built `FROM`, and the workflows call the shared actions in [`dandi-cache-action`](https://github.com/dandi-cache/dandi-cache-action).
+A gap in any of them is fixed there, where every cache gets the fix, rather than worked around here.
+
