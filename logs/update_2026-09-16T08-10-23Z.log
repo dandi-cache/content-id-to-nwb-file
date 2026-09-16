@@ -1,0 +1,3 @@
+2026-09-16T08:10:23Z INFO Logging to /tmp/logs/update_2026-09-16T08-10-23Z.log.
+2026-09-16T08:10:23Z INFO Update content-id-to-nwb-file (base directory /tmp).
+2026-09-16T08:10:26Z INFO Wrote 229790 records to /tmp/derivatives/content_id_to_nwb_file.jsonl in 0.0 min (peak memory 285 MiB).
