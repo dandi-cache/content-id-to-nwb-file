@@ -1,8 +1,19 @@
+# This cache's own processing dependencies, in one place: the container installs them, and
+# `uv run --project envs` recreates the same set locally for debugging.
+#
+# There are none. The filter this cache applies needs only the standard library and the shared
+# library, both of which the base image carries.
+#
+# `datalad` and `datalad-container` used to be here. They never ran inside the image; the shared
+# pipeline installs them on the runner from its own pinned requirements.
+
 [project]
 name = "content-id-to-nwb-file"
 version = "0.1.0"
 requires-python = ">=3.13"
-dependencies = [
-    "datalad",
-    "datalad-container",
-]
+dependencies = []
+
+[project.optional-dependencies]
+# Only for running outside the container: inside it, the library comes from the base image, and
+# installing it again from git would silently replace the version that image was built with.
+local = ["dandi-cache-utils @ git+https://github.com/dandi-cache/dandi-cache-utils.git"]
