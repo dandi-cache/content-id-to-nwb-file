@@ -1,11 +1,15 @@
 """Update the content-id-to-nwb-file DANDI cache.
 
 Subset the upstream `content-id-to-usage-dandiset-path` cache to the entries whose asset path
-names an NWB file. This is a pure filter over its input with nothing to resume, so it recomputes
-the whole subset each run rather than accumulating.
+names an NWB file. It is a string test over a file already in hand: no network, no state, nothing
+to resume, and the whole subset is recomputed in the time it takes to read the input.
 
-Everything shared with the other caches -- the argument parsing, the logging, the batch cap, the
-output paths, and testing mode -- comes from `dandi_cache_utils`, which the runtime image carries.
+That is why this cache declares no limit while every other one does. A limit says how much of a
+backlog one run works through, and there is no backlog here -- each run does all of the work there
+is. `--testing` therefore changes only where the output is written.
+
+Everything shared with the other caches -- the argument parsing, the logging, the output paths,
+and testing mode -- comes from `dandi_cache_utils`, which the runtime image carries.
 """
 
 import dandi_cache_utils as dandi_cache
@@ -22,13 +26,12 @@ def names_an_nwb_file(record: dict, /) -> bool:
 
 
 def main() -> None:
-    dataset, arguments = dandi_cache.open_dataset()
+    dataset, _arguments = dandi_cache.open_dataset()
     usage_dandiset_paths = dataset.read_input()
 
     dandi_cache.run_full_rebuild(
         dataset,
         build=lambda: [record for record in usage_dandiset_paths if names_an_nwb_file(record)],
-        limit=dandi_cache.effective_limit(testing=dataset.testing, limit=arguments.limit),
     )
 
 
