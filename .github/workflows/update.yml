@@ -10,7 +10,11 @@ permissions:
 
 on:
   schedule:
-    - cron: "0 3 * * *"  # Daily at 03:00 UTC, a few hours after the upstream cache updates.
+    # GitHub delays and drops scheduled runs that fall on the hour, so this one runs at a minute of
+    # its own. Every six hours, an hour into each window, after `content-id-to-usage-dandiset-path`
+    # has run on that window's upstream. It used to run an hour before it, so it always filtered the
+    # previous day's mapping.
+    - cron: "7 1-23/6 * * *"
   workflow_dispatch:
     inputs:
       testing:
