@@ -5,5 +5,5 @@
 	branch = derivatives
 [submodule "workspace"]
 	path = workspace
-	url = .
+	url = ../content-id-to-nwb-file.git
 	datalad-url = https://github.com/dandi-cache/content-id-to-nwb-file.git
