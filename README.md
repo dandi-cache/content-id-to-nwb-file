@@ -73,6 +73,25 @@ content_id_to_nwb_file = {key: value for line in lines if line for key, value in
 ```
 
 
+## Reading the `derivatives` branch
+
+Each output is kept on the `derivatives` branch as a [Zarr](https://zarr.dev/) v3 store of JSON Lines: a one-dimensional `uint8` array whose bytes are the lines, padded with newlines to the end of its last chunk.
+A key recorded more than once keeps its last line, which the dictionary below does by itself.
+
+```python
+import json
+
+import zarr  # zarr>=3, with fsspec and aiohttp to read over HTTP
+
+url = "https://raw.githubusercontent.com/dandi-cache/content-id-to-nwb-file/derivatives/derivatives/content_id_to_nwb_file.zarr"
+stream = zarr.open_group(url, mode="r")["stream"]
+lines = stream[:].tobytes().decode("utf-8").splitlines()
+content_id_to_nwb_file = {key: value for line in lines if line for key, value in json.loads(line).items()}
+```
+
+Without Zarr, each chunk is a plain file of whole lines at `derivatives/content_id_to_nwb_file.zarr/stream/c/<n>`, read in order of `n`.
+
+
 ## How this cache is built
 
 The orchestration, the runtime library and the CI all come from elsewhere, so this repository holds only what is specific to this cache: `cache.toml` (what it is), `code/update.py` (the filter it applies), `envs/pyproject.toml` (its dependencies, of which it has none) and the schedule in `.github/workflows/update.yml`.
