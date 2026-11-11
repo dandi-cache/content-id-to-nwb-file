@@ -1,0 +1,3 @@
+2026-11-11T07:43:31Z INFO Logging to /tmp/logs/update_2026-11-11T07-43-31Z.log.
+2026-11-11T07:43:31Z INFO Update content-id-to-nwb-file (base directory /tmp).
+2026-11-11T07:43:36Z INFO Wrote 264106 records to /tmp/derivatives/content_id_to_nwb_file.zarr in 0.1 min (peak memory 703 MiB).
